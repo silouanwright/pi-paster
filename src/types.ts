@@ -28,6 +28,14 @@ export interface PasterImageContent {
   data: string;
 }
 
+export interface PasterPreviewItem {
+  placeholder: string;
+  originalPath: string;
+  mimeType: SupportedImageMimeType;
+  data: string;
+  dimensions?: ImageDimensions;
+}
+
 export type LoadImageResult =
   | { ok: true; image: LoadedImage }
   | {
@@ -37,5 +45,5 @@ export type LoadImageResult =
     };
 
 export interface PasterPreviewDetails {
-  placeholders: string[];
+  attachments: PasterPreviewItem[];
 }

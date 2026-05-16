@@ -1,19 +1,3 @@
-<!--VITE PLUS START-->
-
-# Using Vite+, the Unified Toolchain for the Web
-
-This project is using Vite+, a unified toolchain built on top of Vite, Rolldown, Vitest, tsdown, Oxlint, Oxfmt, and Vite Task. Vite+ wraps runtime management, package management, and frontend tooling in a single global CLI called `vp`. Vite+ is distinct from Vite, and it invokes Vite through `vp dev` and `vp build`. Run `vp help` to print a list of commands and `vp <command> --help` for information about a specific command.
-
-Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.dev/guide/.
-
-## Review Checklist
-
-- [ ] Run `vp install` after pulling remote changes and before getting started.
-- [ ] Run `vp check` and `vp test` to format, lint, type check and test changes.
-- [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
-
-<!--VITE PLUS END-->
-
 # pi-paster Project Guide
 
 ## What this project is
@@ -39,7 +23,7 @@ Target behavior:
 - Supported image formats: PNG, JPEG, WebP, GIF. Detect by magic bytes, not extension only.
 - Max image file size is 10 MB.
 - Leave unsupported/non-image paste text unchanged. Warn only for oversized images.
-- Do not add slash commands or LLM-callable tools; the extension should work automatically.
+- Do not add LLM-callable tools; the extension should work automatically except for the explicit `/paster-paste-image` convenience command.
 
 ## Important files
 
@@ -51,7 +35,7 @@ Target behavior:
 - `src/store.ts` — in-memory attachment store and placeholder allocation.
 - `src/clipboard.ts` — macOS clipboard image reader.
 - `src/terminal-input.ts` — fallback terminal input handler used when the custom editor is disabled.
-- `tests/` — Vitest tests run through Vite+.
+- `tests/` — Node test-runner tests executed with Node's built-in TypeScript stripping.
 - `package.json` — package metadata, npm publishing metadata, peer dependencies, and `pi.extensions` manifest.
 - `docs/preview.png` — package gallery/README preview image.
 - `README.md` — user-facing docs.
@@ -61,21 +45,18 @@ Target behavior:
 Install dependencies:
 
 ```bash
-vp install
+pnpm install
 ```
 
 Run checks:
 
 ```bash
-vp check
-vp test run
+pnpm run typecheck
+pnpm test
+pnpm run check
 ```
 
-Build package output:
-
-```bash
-vp run build
-```
+There is no bundled build step; pi loads the TypeScript extension source from `src/index.ts`.
 
 Try the extension locally in pi:
 
@@ -102,30 +83,35 @@ pi -e .
   - `@earendil-works/pi-tui`
 - Use `CustomEditor` for editor customization so pi app keybindings continue to work.
 - If `customEditor.enabled` is false, do not install the custom editor; use the terminal input fallback for bracketed paste/drop paths.
-- Do not override private pi editor methods. Intercept paste/control sequences through public editor APIs such as `handleInput()` and `insertTextAtCursor()`.
+- Avoid private pi editor internals. The optional atomic placeholder deletion path is experimental because it uses private editor state.
 - Use `pi.on("input", ...)` to transform submitted text and attach image content.
 - Keep image parsing and MIME detection helper functions small and unit-testable.
 - Real images must not render inside pi-tui overlays; overlay compositing can corrupt terminal image escape sequences. Use normal widget/custom render flow instead.
 
 ## Configuration contract
 
-Default config enables all editor integrations:
+Default config avoids replacing pi's editor and leaves shortcuts opt-in:
 
 ```ts
 createPaster({
+  clipboardShortcuts: [],
   customEditor: {
-    enabled: true,
+    enabled: false,
     showImagePreview: true,
-    deletePlaceholderAsBlock: true,
+    deletePlaceholderAsBlock: false,
+    replaceExistingEditor: false,
   },
 });
 ```
 
 Behavior:
 
-- `customEditor.enabled: false` keeps pi's default editor and disables cursor previews, atomic deletion, and paster's clipboard-image handler.
+- `clipboardShortcuts` registers optional shortcuts for the same flow as `/paster-paste-image`.
+- `customEditor.enabled: false` keeps pi's default editor and uses terminal paste/drop handling for image paths.
+- `customEditor.enabled: true` enables cursor previews and editor-level paste handling.
 - `customEditor.showImagePreview: false` keeps the custom editor but disables the above-editor cursor image preview.
-- `customEditor.deletePlaceholderAsBlock: false` keeps the custom editor but lets placeholders delete as normal text.
+- `customEditor.deletePlaceholderAsBlock: true` makes placeholders delete atomically, but uses pi editor internals and is experimental.
+- `customEditor.replaceExistingEditor: false` falls back to non-editor paste handling if another custom editor is already active.
 
 ## Publishing notes
 
@@ -135,9 +121,7 @@ Behavior:
 - Before publishing, run:
 
 ```bash
-vp check
-vp test run
-vp run build
+pnpm run check
 npm pack --dry-run
 ```
 
@@ -151,7 +135,7 @@ NPM may require browser/OTP authentication.
 
 ## Testing guidance
 
-- Put fast unit tests under `tests/` and import test helpers from `vite-plus/test`.
+- Put fast unit tests under `tests/` and use Node's built-in `node:test` plus `node:assert/strict`.
 - Prefer unit tests for parsing, path resolution, MIME detection, attachment ordering, and placeholder matching.
 - Use manual pi testing for TUI behavior that is difficult to automate:
   - normal text paste still works
@@ -165,14 +149,12 @@ NPM may require browser/OTP authentication.
 Before handing off changes, run:
 
 ```bash
-vp check
-vp test run
+pnpm run check
 ```
 
-If implementation changed package output or publish metadata, also run:
+If implementation changed publish metadata, also run:
 
 ```bash
-vp run build
 npm pack --dry-run
 ```
 
@@ -180,9 +162,9 @@ npm pack --dry-run
 
 When working on pi extension APIs, consult the local pi docs first:
 
-- Extensions: `/Users/beowulf/.vite-plus/packages/@earendil-works/pi-coding-agent/lib/node_modules/@earendil-works/pi-coding-agent/docs/extensions.md`
-- TUI/custom editor APIs: `/Users/beowulf/.vite-plus/packages/@earendil-works/pi-coding-agent/lib/node_modules/@earendil-works/pi-coding-agent/docs/tui.md`
-- Package manifests: `/Users/beowulf/.vite-plus/packages/@earendil-works/pi-coding-agent/lib/node_modules/@earendil-works/pi-coding-agent/docs/packages.md`
-- Extension examples: `/Users/beowulf/.vite-plus/packages/@earendil-works/pi-coding-agent/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/`
+- Extensions: local `@earendil-works/pi-coding-agent` docs, `docs/extensions.md`
+- TUI/custom editor APIs: local `@earendil-works/pi-coding-agent` docs, `docs/tui.md`
+- Package manifests: local `@earendil-works/pi-coding-agent` docs, `docs/packages.md`
+- Extension examples: local `@earendil-works/pi-coding-agent` examples, `examples/extensions/`
 
-For Vite+ commands/config, use local docs in `node_modules/vite-plus/docs` or https://viteplus.dev/guide/.
+This fork intentionally does not use Vite+.

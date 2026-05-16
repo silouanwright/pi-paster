@@ -5,13 +5,13 @@ import {
   type ImageTheme,
   truncateToWidth,
 } from "@earendil-works/pi-tui";
-import type { ImageAttachment } from "./types.ts";
+import type { ImageAttachment, PasterPreviewItem } from "./types.ts";
 
 export class ImagePreviewMessage implements Component {
   private readonly images: Image[];
 
   constructor(
-    private readonly attachments: ImageAttachment[],
+    private readonly attachments: PasterPreviewItem[],
     private readonly theme: ImageTheme,
   ) {
     this.images = attachments.map(

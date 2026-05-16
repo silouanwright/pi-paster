@@ -1,4 +1,9 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
+import type { KeyId } from "@earendil-works/pi-tui";
 import { readClipboardImage } from "./clipboard.ts";
 import { type PasterConfig, resolvePasterConfig } from "./config.ts";
 import { PasterEditor } from "./editor.ts";
@@ -6,7 +11,7 @@ import { imagesForText } from "./image-utils.ts";
 import { CursorImagePreviewWidget, ImagePreviewMessage } from "./preview.ts";
 import { AttachmentStore } from "./store.ts";
 import { createImagePasteTerminalInputHandler } from "./terminal-input.ts";
-import type { ImageAttachment, PasterPreviewDetails } from "./types.ts";
+import type { ImageAttachment, PasterPreviewItem, PasterPreviewDetails } from "./types.ts";
 
 export * from "./clipboard.ts";
 export * from "./config.ts";
@@ -21,23 +26,77 @@ export function createPaster(config: PasterConfig = {}): (pi: ExtensionAPI) => v
   return (pi) => paster(pi, config);
 }
 
+function toPreviewItem(attachment: ImageAttachment): PasterPreviewItem {
+  return {
+    placeholder: attachment.placeholder,
+    originalPath: attachment.originalPath,
+    mimeType: attachment.mimeType,
+    data: attachment.data,
+    dimensions: attachment.dimensions,
+  };
+}
+
 export default function paster(pi: ExtensionAPI, config: PasterConfig = {}): void {
   const resolvedConfig = resolvePasterConfig(config);
   const store = new AttachmentStore();
   let pendingPreview: ImageAttachment[] = [];
   let activeEditor: PasterEditor | undefined;
   let unsubscribeTerminalInput: (() => void) | undefined;
+  let restoreEditorComponent: (() => void) | undefined;
+
+  const clearCursorPreview = (): void => {
+    activeEditor?.clearCursorPreview();
+    activeEditor = undefined;
+  };
+
+  const installTerminalInputHandler = (ctx: ExtensionContext | ExtensionCommandContext): void => {
+    unsubscribeTerminalInput?.();
+    unsubscribeTerminalInput = ctx.ui.onTerminalInput(
+      createImagePasteTerminalInputHandler({
+        cwd: ctx.cwd,
+        store,
+        notify: (message) => ctx.ui.notify(message, "warning"),
+      }),
+    );
+  };
+
+  const pasteClipboardImage = (ctx: ExtensionContext | ExtensionCommandContext): void => {
+    if (!ctx.hasUI) return;
+
+    const result = readClipboardImage();
+    if (!result.ok) {
+      if (result.reason === "empty") {
+        ctx.ui.notify("paster: no image found in the clipboard", "warning");
+      } else if (result.reason !== "unsupported-platform") {
+        ctx.ui.notify("paster: clipboard image could not be attached", "warning");
+      }
+      return;
+    }
+
+    const attachment = store.add(result.image);
+    ctx.ui.pasteToEditor(attachment.placeholder);
+    ctx.ui.notify(`paster: attached ${attachment.placeholder}`, "info");
+  };
 
   pi.registerMessageRenderer<PasterPreviewDetails>("paster-preview", (message, _options, theme) => {
-    const placeholders = message.details?.placeholders ?? [];
-    const attachments = store
-      .list()
-      .filter((attachment) => placeholders.includes(attachment.placeholder));
+    const attachments = message.details?.attachments ?? [];
     if (attachments.length === 0) return undefined;
     return new ImagePreviewMessage(attachments, {
       fallbackColor: (text) => theme.fg("muted", text),
     });
   });
+
+  pi.registerCommand("paster-paste-image", {
+    description: "Attach a clipboard image to the current draft using a paster placeholder",
+    handler: async (_args, ctx) => pasteClipboardImage(ctx),
+  });
+
+  for (const shortcut of resolvedConfig.clipboardShortcuts) {
+    pi.registerShortcut(shortcut as KeyId, {
+      description: "Attach clipboard image to draft using paster",
+      handler: (ctx) => pasteClipboardImage(ctx),
+    });
+  }
 
   pi.on("session_start", (_event, ctx) => {
     store.clear();
@@ -46,21 +105,27 @@ export default function paster(pi: ExtensionAPI, config: PasterConfig = {}): voi
 
     unsubscribeTerminalInput?.();
     unsubscribeTerminalInput = undefined;
-    activeEditor?.clearCursorPreview();
-    activeEditor = undefined;
+    restoreEditorComponent?.();
+    restoreEditorComponent = undefined;
+    clearCursorPreview();
     ctx.ui.setWidget("paster-cursor-preview", undefined, { placement: "aboveEditor" });
 
     if (!resolvedConfig.customEditor.enabled) {
-      unsubscribeTerminalInput = ctx.ui.onTerminalInput(
-        createImagePasteTerminalInputHandler({
-          cwd: ctx.cwd,
-          store,
-          notify: (message) => ctx.ui.notify(message, "warning"),
-        }),
-      );
+      installTerminalInputHandler(ctx);
       return;
     }
 
+    const previousEditorComponent = ctx.ui.getEditorComponent();
+    if (previousEditorComponent && !resolvedConfig.customEditor.replaceExistingEditor) {
+      ctx.ui.notify(
+        "paster: another custom editor is active; using paste-path fallback instead",
+        "warning",
+      );
+      installTerminalInputHandler(ctx);
+      return;
+    }
+
+    restoreEditorComponent = () => ctx.ui.setEditorComponent(previousEditorComponent);
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {
       activeEditor = new PasterEditor(tui, theme, keybindings, {
         cwd: ctx.cwd,
@@ -102,10 +167,10 @@ export default function paster(pi: ExtensionAPI, config: PasterConfig = {}): voi
     if (ctx.hasUI) {
       unsubscribeTerminalInput?.();
       unsubscribeTerminalInput = undefined;
-      activeEditor?.clearCursorPreview();
-      activeEditor = undefined;
+      clearCursorPreview();
       ctx.ui.setWidget("paster-cursor-preview", undefined, { placement: "aboveEditor" });
-      ctx.ui.setEditorComponent(undefined);
+      restoreEditorComponent?.();
+      restoreEditorComponent = undefined;
     }
     store.clear();
   });
@@ -129,14 +194,14 @@ export default function paster(pi: ExtensionAPI, config: PasterConfig = {}): voi
 
   pi.on("before_agent_start", () => {
     if (pendingPreview.length === 0) return;
-    const placeholders = pendingPreview.map((attachment) => attachment.placeholder);
+    const attachments = pendingPreview.map(toPreviewItem);
     pendingPreview = [];
     return {
       message: {
         customType: "paster-preview",
         content: "",
         display: true,
-        details: { placeholders },
+        details: { attachments },
       },
     };
   });

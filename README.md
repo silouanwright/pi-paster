@@ -81,13 +81,15 @@ On submit, the text and matching image attachment are sent together.
 
 ## Clipboard image paste
 
-On macOS, pi exposes an image paste action through its keybinding system. In the default pi keybindings this is `Ctrl+V`.
+On macOS, use the `/paster-paste-image` command to read the clipboard image, insert a placeholder, and attach the image when you submit.
 
-`Cmd+V` is handled by the terminal emulator itself. In Ghostty, if the clipboard contains text, Ghostty pastes the text into pi; if the clipboard contains only image data, pi may receive no input. Use pi's image paste keybinding for direct clipboard-image paste.
+If you want a keyboard shortcut, load a small wrapper extension and set `clipboardShortcuts`. Shortcuts are opt-in so paster does not conflict with pi's built-in keybindings or other editor extensions.
+
+`Cmd+V` is handled by the terminal emulator itself. In Ghostty, if the clipboard contains text, Ghostty pastes the text into pi; if the clipboard contains only image data, pi may receive no input. Use `/paster-paste-image` or an explicit paster shortcut for direct clipboard-image paste.
 
 ## Configuration
 
-By default all editor integrations are enabled.
+By default paster avoids replacing pi's editor. It uses terminal paste/drop handling for image paths and the `/paster-paste-image` command for clipboard images.
 
 To customize behavior, load a small wrapper extension:
 
@@ -95,33 +97,37 @@ To customize behavior, load a small wrapper extension:
 import { createPaster } from "pi-paster";
 
 export default createPaster({
+  clipboardShortcuts: ["alt+v"],
   customEditor: {
     enabled: true,
     showImagePreview: true,
-    deletePlaceholderAsBlock: true,
+    deletePlaceholderAsBlock: false,
+    replaceExistingEditor: false,
   },
 });
 ```
 
 ### Options
 
-| Option                                  | Default | Description                                                                                                                 |
-| --------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `customEditor.enabled`                  | `true`  | Replaces pi's input editor with paster's editor integration. Disable this to keep pi's default editor.                      |
-| `customEditor.showImagePreview`         | `true`  | Shows an image preview above the input when the cursor is inside an image placeholder. Requires `customEditor.enabled`.     |
-| `customEditor.deletePlaceholderAsBlock` | `true`  | Makes backspace/delete remove the whole placeholder when editing inside or adjacent to it. Requires `customEditor.enabled`. |
+| Option                                  | Default | Description                                                                                                                          |
+| --------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `clipboardShortcuts`                    | `[]`    | Optional shortcuts that run the same clipboard attach flow as `/paster-paste-image`.                                                  |
+| `customEditor.enabled`                  | `false` | Replaces pi's input editor with paster's editor integration for cursor previews and editor-level paste handling.                      |
+| `customEditor.showImagePreview`         | `true`  | Shows an image preview above the input when the cursor is inside an image placeholder. Requires `customEditor.enabled`.               |
+| `customEditor.deletePlaceholderAsBlock` | `false` | Makes backspace/delete remove the whole placeholder when editing inside or adjacent to it. Experimental: uses pi editor internals.    |
+| `customEditor.replaceExistingEditor`    | `false` | If another extension already installed a custom editor, replace it instead of falling back to paster's non-editor paste path handler. |
 
-When `customEditor.enabled` is `false`, paster still handles bracketed terminal paste/drop image paths, but cursor previews, atomic placeholder deletion, and paster's clipboard-image handler are disabled.
+When `customEditor.enabled` is `false`, paster still handles bracketed terminal paste/drop image paths and clipboard images through `/paster-paste-image`, but cursor previews and atomic placeholder deletion are disabled.
 
 ## Development
 
-This repo uses Vite+ via `vp` with pnpm.
+This repo uses a plain TypeScript toolchain with pnpm.
 
 ```bash
-vp install
-vp check
-vp test run
-vp run build
+pnpm install
+pnpm run typecheck
+pnpm test
+pnpm run check
 ```
 
 The package manifest exposes the extension through:

@@ -1,5 +1,6 @@
-import { describe, expect, test } from "vite-plus/test";
-import { AttachmentStore } from "../src/index.ts";
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+import { AttachmentStore } from "../src/store.ts";
 
 describe("AttachmentStore", () => {
   test("allocates placeholders in insertion order", () => {
@@ -16,9 +17,9 @@ describe("AttachmentStore", () => {
       data: "bbb",
     });
 
-    expect(first.placeholder).toBe("[#image 1]");
-    expect(second.placeholder).toBe("[#image 2]");
-    expect(store.list().map((attachment) => attachment.placeholder)).toEqual([
+    assert.equal(first.placeholder, "[#image 1]");
+    assert.equal(second.placeholder, "[#image 2]");
+    assert.deepEqual(store.list().map((attachment) => attachment.placeholder), [
       "[#image 1]",
       "[#image 2]",
     ]);
@@ -33,7 +34,7 @@ describe("AttachmentStore", () => {
       "compare [#image 2] with [#image 1] and [#image 2] again",
     );
 
-    expect(matches.map((attachment) => attachment.placeholder)).toEqual([
+    assert.deepEqual(matches.map((attachment) => attachment.placeholder), [
       "[#image 2]",
       "[#image 1]",
     ]);
@@ -45,9 +46,10 @@ describe("AttachmentStore", () => {
 
     store.clear();
 
-    expect(store.list()).toEqual([]);
-    expect(
+    assert.deepEqual(store.list(), []);
+    assert.equal(
       store.add({ originalPath: "/tmp/b.png", mimeType: "image/png", data: "bbb" }).placeholder,
-    ).toBe("[#image 1]");
+      "[#image 1]",
+    );
   });
 });
