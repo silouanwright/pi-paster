@@ -83,13 +83,13 @@ On submit, the text and matching image attachment are sent together.
 
 On macOS, use the `/paster-paste-image` command to read the clipboard image, insert a placeholder, and attach the image when you submit.
 
-If you want a keyboard shortcut, load a small wrapper extension and set `clipboardShortcuts`. Shortcuts are opt-in so paster does not conflict with pi's built-in keybindings or other editor extensions.
+Paster also registers `Alt+V` by default for the same clipboard-image flow. If your terminal or another extension uses `Alt+V`, load a small wrapper extension and set `clipboardShortcuts: false` or provide another shortcut.
 
-`Cmd+V` is handled by the terminal emulator itself. In Ghostty, if the clipboard contains text, Ghostty pastes the text into pi; if the clipboard contains only image data, pi may receive no input. Use `/paster-paste-image` or an explicit paster shortcut for direct clipboard-image paste.
+`Cmd+V` is handled by the terminal emulator itself. In Ghostty, if the clipboard contains text, Ghostty pastes the text into pi; if the clipboard contains only image data, pi may receive no input. Use `Alt+V`, `/paster-paste-image`, or an explicit paster shortcut for direct clipboard-image paste.
 
 ## Configuration
 
-By default paster avoids replacing pi's editor. It uses terminal paste/drop handling for image paths and the `/paster-paste-image` command for clipboard images.
+By default paster avoids replacing pi's editor. It uses terminal paste/drop handling for image paths plus `Alt+V` and `/paster-paste-image` for clipboard images.
 
 To customize behavior, load a small wrapper extension:
 
@@ -111,7 +111,7 @@ export default createPaster({
 
 | Option                                  | Default | Description                                                                                                                          |
 | --------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `clipboardShortcuts`                    | `[]`    | Optional shortcuts that run the same clipboard attach flow as `/paster-paste-image`.                                                  |
+| `clipboardShortcuts`                    | `["alt+v"]` | Shortcuts that run the same clipboard attach flow as `/paster-paste-image`. Set `false` or `[]` to disable.                     |
 | `customEditor.enabled`                  | `false` | Replaces pi's input editor with paster's editor integration for cursor previews and editor-level paste handling.                      |
 | `customEditor.showImagePreview`         | `true`  | Shows an image preview above the input when the cursor is inside an image placeholder. Requires `customEditor.enabled`.               |
 | `customEditor.deletePlaceholderAsBlock` | `false` | Makes backspace/delete remove the whole placeholder when editing inside or adjacent to it. Experimental: uses pi editor internals.    |

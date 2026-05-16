@@ -1,7 +1,7 @@
 export interface PasterConfig {
   /**
-   * Optional keyboard shortcuts that read a clipboard image and insert a paster placeholder.
-   * Leave unset to avoid shortcut conflicts; use /paster-paste-image instead.
+   * Keyboard shortcuts that read a clipboard image and insert a paster placeholder.
+   * Set to false or [] to disable shortcut registration.
    */
   clipboardShortcuts?: string | string[] | false;
   customEditor?: {
@@ -30,7 +30,7 @@ export interface ResolvedPasterConfig {
 }
 
 export const DEFAULT_PASTER_CONFIG: ResolvedPasterConfig = {
-  clipboardShortcuts: [],
+  clipboardShortcuts: ["alt+v"],
   customEditor: {
     enabled: false,
     showImagePreview: true,
@@ -40,7 +40,8 @@ export const DEFAULT_PASTER_CONFIG: ResolvedPasterConfig = {
 };
 
 function normalizeShortcuts(shortcuts: PasterConfig["clipboardShortcuts"]): string[] {
-  if (shortcuts === false || shortcuts === undefined) return [];
+  if (shortcuts === false) return [];
+  if (shortcuts === undefined) return DEFAULT_PASTER_CONFIG.clipboardShortcuts;
   return Array.isArray(shortcuts) ? shortcuts : [shortcuts];
 }
 

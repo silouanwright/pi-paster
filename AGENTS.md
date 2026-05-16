@@ -90,11 +90,11 @@ pi -e .
 
 ## Configuration contract
 
-Default config avoids replacing pi's editor and leaves shortcuts opt-in:
+Default config avoids replacing pi's editor and registers `Alt+V` for clipboard images:
 
 ```ts
 createPaster({
-  clipboardShortcuts: [],
+  clipboardShortcuts: ["alt+v"],
   customEditor: {
     enabled: false,
     showImagePreview: true,
@@ -106,7 +106,7 @@ createPaster({
 
 Behavior:
 
-- `clipboardShortcuts` registers optional shortcuts for the same flow as `/paster-paste-image`.
+- `clipboardShortcuts` registers shortcuts for the same flow as `/paster-paste-image`; set `false` or `[]` to disable.
 - `customEditor.enabled: false` keeps pi's default editor and uses terminal paste/drop handling for image paths.
 - `customEditor.enabled: true` enables cursor previews and editor-level paste handling.
 - `customEditor.showImagePreview: false` keeps the custom editor but disables the above-editor cursor image preview.
