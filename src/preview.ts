@@ -28,9 +28,8 @@ export class ImagePreviewMessage implements Component {
     const lines: string[] = [];
     for (let index = 0; index < this.attachments.length; index++) {
       const attachment = this.attachments[index]!;
-      lines.push(
-        this.theme.fallbackColor(`Attached ${attachment.placeholder} ${attachment.originalPath}`),
-      );
+      const title = `Attached ${attachment.placeholder} ${attachment.originalPath}`;
+      lines.push(this.theme.fallbackColor(truncateToWidth(title, Math.max(1, width), "")));
       lines.push(...this.images[index]!.render(width));
     }
     return lines;
