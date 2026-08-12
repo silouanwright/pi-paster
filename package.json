@@ -44,7 +44,7 @@
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
   },
-  "packageManager": "pnpm@11.1.2",
+  "packageManager": "pnpm@10.34.5",
   "pi": {
     "extensions": [
       "./src/index.ts"
